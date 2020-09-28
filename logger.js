@@ -1,6 +1,7 @@
+const { log, debug, error, warn } = console;
 module.exports = {
-  log: console.log,
-  debug: console.debug,
-  error: console.error,
-  warn: console.warn,
+  log,
+  debug,
+  error,
+  warn,
 };
