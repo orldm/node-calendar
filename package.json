@@ -1,0 +1,19 @@
+{
+  "name": "calendar",
+  "version": "1.0.0",
+  "description": "node js calendar",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/orldm/node-calendar.git"
+  },
+  "author": "Dmytro Orlov",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/orldm/node-calendar/issues"
+  },
+  "homepage": "https://github.com/orldm/node-calendar#readme"
+}
