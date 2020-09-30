@@ -1,8 +1,11 @@
-const regex = /-env=([a-z]+)/;
-const args = process.argv.slice(2)[0];
-const match = args && args.match(regex) && args.match(regex)[1];
-const ENV = match || "dev";
+const regex = /-([a-z]+)=([a-z]+)/;
+const args = process.argv.slice(2);
+const data = {};
+args.forEach((item) => {
+  const match = item.match(regex);
+  if (match) data[match[1]] = match[2];
+});
 module.exports = {
   PORT: process.env.PORT || 3000,
-  ENV,
+  ENV: data.env || "dev",
 };
