@@ -4,9 +4,17 @@ const bodyParser = require("body-parser");
 const csv = require("csv-parser");
 const fs = require("fs");
 const stream = require("stream");
+const Joi = require("joi");
 
 const HEADERS = "id,title,location,date,hour";
 const FILENAME = "events.csv";
+
+const schema = Joi.object({
+  title: Joi.string().alphanum().max(30).required(),
+  location: Joi.string().alphanum().max(30).required(),
+  date: Joi.date().required(),
+  hour: Joi.string().pattern(new RegExp("^[0-9][0-9]:[0-9][0-9]$")),
+});
 
 async function writeEventsToCsv(events) {
   const lineSeparator = "\n";
@@ -65,7 +73,12 @@ app.post("/events", async (req, res) => {
     (event) => event.date === date && event.hour === hour
   )[0];
   if (event) {
-    res.sendStatus(400);
+    return res.status(400).send("conflicting entity");
+  }
+
+  const { error } = schema.validate({ title, location, date, hour });
+  if (error) {
+    return res.status(400).send(error.message);
   }
 
   const id = events.length + 1;
@@ -86,6 +99,11 @@ app.put("/events/:eventId", async (req, res) => {
   }
 
   const { title, location, date, hour } = req.body;
+  const { error } = schema.validate({ title, location, date, hour });
+  if (error) {
+    return res.status(400).send(error.message);
+  }
+
   const newEvent = { id: eventIndex + 1, title, location, date, hour };
 
   const newEvents = [
