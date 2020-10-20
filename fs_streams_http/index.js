@@ -6,6 +6,16 @@ const fs = require("fs");
 const stream = require("stream");
 const Joi = require("joi");
 const { AsyncLocalStorage } = require("async_hooks");
+const winston = require("winston");
+
+const logger = winston.createLogger({
+  level: "info",
+  format: winston.format.json(),
+  transports: [
+    new winston.transports.File({ filename: "error.log", level: "error" }),
+    new winston.transports.File({ filename: "combined.log" }),
+  ],
+});
 
 const HEADERS = "id,title,location,date,hour";
 const FILENAME = "events.csv";
@@ -51,6 +61,10 @@ app.use(bodyParser.json());
 app.get("/events", async (req, res, next) => {
   asyncLocalStorage.run(req, async () => {
     const location = req.query.location;
+    logger.info("incoming request for events", {
+      timestamp: new Date(),
+      location,
+    });
     // error
     const error = new Error("fatal error");
     error.statusCode = 301;
@@ -68,6 +82,10 @@ app.get("/events/:eventId", async (req, res, next) => {
   asyncLocalStorage.run(req, async () => {
     try {
       const eventId = req.params.eventId;
+      logger.info("incoming request for event", {
+        timestamp: new Date(),
+        eventId,
+      });
       const events = await readEventsFromCSV();
       const event = events.filter(
         (event) => event.id.toString() === eventId
@@ -93,18 +111,30 @@ app.post("/events", async (req, res, next) => {
         (event) => event.date === date && event.hour === hour
       )[0];
       if (event) {
+        logger.error("conflicting entity when adding event", {
+          timestamp: new Date(),
+          event,
+        });
         return res.status(400).send("conflicting entity");
       }
 
-      const { error } = schema.validate({ title, location, date, hour });
+      const newEvent = { title, location, date, hour };
+      const { error } = schema.validate(newEvent);
       if (error) {
+        logger.error(error.message, {
+          timestamp: new Date(),
+          newEvent,
+        });
         return res.status(400).send(error.message);
       }
 
-      const id = generateId();
-      const newEvent = { id, title, location, date, hour };
+      newEvent.id = generateId();
       events.push(newEvent);
       await writeEventsToCsv(events);
+      logger.info("new event added", {
+        timestamp: new Date(),
+        eventId,
+      });
       res.json(newEvent);
     } catch (e) {
       next(e);
@@ -116,21 +146,34 @@ app.put("/events/:eventId", async (req, res, next) => {
   asyncLocalStorage.run(req, async () => {
     try {
       const eventId = req.params.eventId;
+      logger.info("updating event", {
+        timestamp: new Date(),
+        eventId,
+      });
       const events = await readEventsFromCSV();
       const eventIndex = events.findIndex(
         (event) => event.id.toString() === eventId
       );
       if (eventIndex === -1) {
+        logger.error("event not found", {
+          timestamp: new Date(),
+          eventId,
+        });
         return res.sendStatus(404);
       }
 
       const { title, location, date, hour } = req.body;
-      const { error } = schema.validate({ title, location, date, hour });
+      const newEvent = { title, location, date, hour };
+      const { error } = schema.validate(newEvent);
       if (error) {
+        logger.error(error.message, {
+          timestamp: new Date(),
+          newEvent,
+        });
         return res.status(400).send(error.message);
       }
 
-      const newEvent = { id: eventIndex + 1, title, location, date, hour };
+      newEvent.id = eventId;
 
       const newEvents = [
         ...events.slice(0, eventIndex),
@@ -149,6 +192,9 @@ app.put("/events/:eventId", async (req, res, next) => {
 app.get("/events-batch", async (req, res, next) => {
   asyncLocalStorage.run(req, async () => {
     try {
+      logger.info("batch streaming events", {
+        timestamp: new Date(),
+      });
       const events = await readEventsFromCSV();
       const streamEvents = stream.Readable.from(JSON.stringify(events));
       streamEvents.pipe(res);
@@ -164,17 +210,17 @@ app.listen(3000, () => {
 
 app.use((error, req, res, next) => {
   // get local storage
-  const store = asyncLocalStorage.getStore();
-  console.log("req =", store);
+  const context = asyncLocalStorage.getStore();
+  logger.error(error.toString(), { context, timestamp: new Date() });
   return res.status(500).json({ error: error.toString() });
 });
 
 process.on("unhandledRejection", () => {
-  console.log("unhandled rejection warning");
+  logger.error("unhandled rejection warning", { timestamp: new Date() });
 });
 
 process.on("uncaughtException", () => {
-  console.log("exception");
+  logger.error("exception", { timestamp: new Date() });
 });
 
 // curl --request GET 'http://localhost:3000/events'
