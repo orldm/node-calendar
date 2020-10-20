@@ -15,5 +15,11 @@
   "bugs": {
     "url": "https://github.com/orldm/node-calendar/issues"
   },
-  "homepage": "https://github.com/orldm/node-calendar#readme"
+  "homepage": "https://github.com/orldm/node-calendar#readme",
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "csv-parser": "^2.3.3",
+    "express": "^4.17.1",
+    "joi": "^17.2.1"
+  }
 }
