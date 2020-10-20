@@ -5,11 +5,14 @@ const csv = require("csv-parser");
 const fs = require("fs");
 const stream = require("stream");
 const Joi = require("joi");
+const { AsyncLocalStorage } = require("async_hooks");
 
 const HEADERS = "id,title,location,date,hour";
 const FILENAME = "events.csv";
 
 const generateId = () => Math.random().toString().split(".")[1];
+
+const asyncLocalStorage = new AsyncLocalStorage();
 
 const schema = Joi.object({
   title: Joi.string().alphanum().max(30).required(),
@@ -45,87 +48,133 @@ async function readEventsFromCSV() {
 
 app.use(bodyParser.json());
 
-app.get("/events", async (req, res) => {
-  const location = req.query.location;
-  const events = await readEventsFromCSV();
-
-  if (location) {
-    return res.json(events.filter((event) => event.location === location));
-  }
-
-  res.json(events);
+app.get("/events", async (req, res, next) => {
+  asyncLocalStorage.run(req, async () => {
+    const location = req.query.location;
+    // error
+    const error = new Error("fatal error");
+    error.statusCode = 301;
+    next(error);
+    ///
+    const events = await readEventsFromCSV();
+    if (location) {
+      return res.json(events.filter((event) => event.location === location));
+    }
+    res.json(events);
+  });
 });
 
-app.get("/events/:eventId", async (req, res) => {
-  const eventId = req.params.eventId;
-  const events = await readEventsFromCSV();
-  const event = events.filter((event) => event.id.toString() === eventId)[0];
+app.get("/events/:eventId", async (req, res, next) => {
+  asyncLocalStorage.run(req, async () => {
+    try {
+      const eventId = req.params.eventId;
+      const events = await readEventsFromCSV();
+      const event = events.filter(
+        (event) => event.id.toString() === eventId
+      )[0];
 
-  if (!event) {
-    return res.sendStatus(404);
-  }
+      if (!event) {
+        return res.sendStatus(404);
+      }
 
-  res.json(event);
+      res.json(event);
+    } catch (e) {
+      next(e);
+    }
+  });
 });
 
-app.post("/events", async (req, res) => {
-  const { title, location, date, hour } = req.body;
-  const events = await readEventsFromCSV();
-  const event = events.filter(
-    (event) => event.date === date && event.hour === hour
-  )[0];
-  if (event) {
-    return res.status(400).send("conflicting entity");
-  }
+app.post("/events", async (req, res, next) => {
+  asyncLocalStorage.run(req, async () => {
+    try {
+      const { title, location, date, hour } = req.body;
+      const events = await readEventsFromCSV();
+      const event = events.filter(
+        (event) => event.date === date && event.hour === hour
+      )[0];
+      if (event) {
+        return res.status(400).send("conflicting entity");
+      }
 
-  const { error } = schema.validate({ title, location, date, hour });
-  if (error) {
-    return res.status(400).send(error.message);
-  }
+      const { error } = schema.validate({ title, location, date, hour });
+      if (error) {
+        return res.status(400).send(error.message);
+      }
 
-  const id = generateId();
-  const newEvent = { id, title, location, date, hour };
-  events.push(newEvent);
-  await writeEventsToCsv(events);
-  res.json(newEvent);
+      const id = generateId();
+      const newEvent = { id, title, location, date, hour };
+      events.push(newEvent);
+      await writeEventsToCsv(events);
+      res.json(newEvent);
+    } catch (e) {
+      next(e);
+    }
+  });
 });
 
-app.put("/events/:eventId", async (req, res) => {
-  const eventId = req.params.eventId;
-  const events = await readEventsFromCSV();
-  const eventIndex = events.findIndex(
-    (event) => event.id.toString() === eventId
-  );
-  if (eventIndex === -1) {
-    return res.sendStatus(404);
-  }
+app.put("/events/:eventId", async (req, res, next) => {
+  asyncLocalStorage.run(req, async () => {
+    try {
+      const eventId = req.params.eventId;
+      const events = await readEventsFromCSV();
+      const eventIndex = events.findIndex(
+        (event) => event.id.toString() === eventId
+      );
+      if (eventIndex === -1) {
+        return res.sendStatus(404);
+      }
 
-  const { title, location, date, hour } = req.body;
-  const { error } = schema.validate({ title, location, date, hour });
-  if (error) {
-    return res.status(400).send(error.message);
-  }
+      const { title, location, date, hour } = req.body;
+      const { error } = schema.validate({ title, location, date, hour });
+      if (error) {
+        return res.status(400).send(error.message);
+      }
 
-  const newEvent = { id: eventIndex + 1, title, location, date, hour };
+      const newEvent = { id: eventIndex + 1, title, location, date, hour };
 
-  const newEvents = [
-    ...events.slice(0, eventIndex),
-    newEvent,
-    ...events.slice(eventIndex + 1, events.length),
-  ];
+      const newEvents = [
+        ...events.slice(0, eventIndex),
+        newEvent,
+        ...events.slice(eventIndex + 1, events.length),
+      ];
 
-  await writeEventsToCsv(newEvents);
-  res.json(newEvent);
+      await writeEventsToCsv(newEvents);
+      res.json(newEvent);
+    } catch (e) {
+      next(e);
+    }
+  });
 });
 
-app.get("/events-batch", async (req, res) => {
-  const events = await readEventsFromCSV();
-  const streamEvents = stream.Readable.from(JSON.stringify(events));
-  streamEvents.pipe(res);
+app.get("/events-batch", async (req, res, next) => {
+  asyncLocalStorage.run(req, async () => {
+    try {
+      const events = await readEventsFromCSV();
+      const streamEvents = stream.Readable.from(JSON.stringify(events));
+      streamEvents.pipe(res);
+    } catch (e) {
+      next(e);
+    }
+  });
 });
 
 app.listen(3000, () => {
   console.log("server start at port 3000"); //the server object listens on port 3000
+});
+
+app.use((error, req, res, next) => {
+  // get local storage
+  const store = asyncLocalStorage.getStore();
+  console.log("req =", store);
+  return res.status(500).json({ error: error.toString() });
+});
+
+process.on("unhandledRejection", () => {
+  console.log("unhandled rejection warning");
+});
+
+process.on("uncaughtException", () => {
+  console.log("exception");
 });
 
 // curl --request GET 'http://localhost:3000/events'
