@@ -18,8 +18,15 @@ http
         writeHeader(res, 200);
         res.end(JSON.stringify({ message: "getting list of users" }));
       } else if (method === "POST") {
-        writeHeader(res, 200);
-        res.end(JSON.stringify({ message: "new user created" }));
+        let bodyBuffer = Buffer.from([]);
+        req.on("data", (chunk) => {
+          bodyBuffer = Buffer.concat([bodyBuffer, chunk]);
+        });
+        req.on("end", () => {
+          const user = JSON.parse(bodyBuffer.toString());
+          writeHeader(res, 200);
+          res.end(JSON.stringify({ message: "new user created", user }));
+        });
       } else {
         writeHeader(res, 405);
         res.end(JSON.stringify({ message: "method not allowed" }));
