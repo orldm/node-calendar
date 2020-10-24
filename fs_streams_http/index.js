@@ -58,150 +58,148 @@ async function readEventsFromCSV() {
 
 app.use(bodyParser.json());
 
-app.get("/events", async (req, res, next) => {
+app.use(function (req, res, next) {
   asyncLocalStorage.run(req, async () => {
-    const location = req.query.location;
-    logger.info("incoming request for events", {
-      timestamp: new Date(),
-      location,
-    });
-    // error
-    const error = new Error("fatal error");
-    error.statusCode = 301;
-    next(error);
-    ///
-    const events = await readEventsFromCSV();
-    if (location) {
-      return res.json(events.filter((event) => event.location === location));
+    try {
+      next();
+    } catch (e) {
+      next(e);
     }
-    res.json(events);
   });
+});
+
+app.get("/events", async (req, res, next) => {
+  const location = req.query.location;
+  logger.info("incoming request for events", {
+    timestamp: new Date(),
+    location,
+  });
+  // error
+  const error = new Error("fatal error");
+  error.statusCode = 301;
+  next(error);
+  ///
+  const events = await readEventsFromCSV();
+  if (location) {
+    return res.json(events.filter((event) => event.location === location));
+  }
+  res.json(events);
 });
 
 app.get("/events/:eventId", async (req, res, next) => {
-  asyncLocalStorage.run(req, async () => {
-    try {
-      const eventId = req.params.eventId;
-      logger.info("incoming request for event", {
-        timestamp: new Date(),
-        eventId,
-      });
-      const events = await readEventsFromCSV();
-      const event = events.filter(
-        (event) => event.id.toString() === eventId
-      )[0];
+  try {
+    const eventId = req.params.eventId;
+    logger.info("incoming request for event", {
+      timestamp: new Date(),
+      eventId,
+    });
+    const events = await readEventsFromCSV();
+    const event = events.filter((event) => event.idd.toString() === eventId)[0];
 
-      if (!event) {
-        return res.sendStatus(404);
-      }
-
-      res.json(event);
-    } catch (e) {
-      next(e);
+    if (!event) {
+      return res.sendStatus(404);
     }
-  });
+
+    res.json(event);
+  } catch (e) {
+    next(e);
+  }
 });
 
 app.post("/events", async (req, res, next) => {
-  asyncLocalStorage.run(req, async () => {
-    try {
-      const { title, location, date, hour } = req.body;
-      const events = await readEventsFromCSV();
-      const event = events.filter(
-        (event) => event.date === date && event.hour === hour
-      )[0];
-      if (event) {
-        logger.error("conflicting entity when adding event", {
-          timestamp: new Date(),
-          event,
-        });
-        return res.status(400).send("conflicting entity");
-      }
-
-      const newEvent = { title, location, date, hour };
-      const { error } = schema.validate(newEvent);
-      if (error) {
-        logger.error(error.message, {
-          timestamp: new Date(),
-          newEvent,
-        });
-        return res.status(400).send(error.message);
-      }
-
-      newEvent.id = generateId();
-      events.push(newEvent);
-      await writeEventsToCsv(events);
-      logger.info("new event added", {
+  try {
+    const { title, location, date, hour } = req.body;
+    const events = await readEventsFromCSV();
+    const event = events.filter(
+      (event) => event.date === date && event.hour === hour
+    )[0];
+    if (event) {
+      logger.error("conflicting entity when adding event", {
         timestamp: new Date(),
-        eventId,
+        event,
       });
-      res.json(newEvent);
-    } catch (e) {
-      next(e);
+      return res.status(400).send("conflicting entity");
     }
-  });
+
+    const newEvent = { title, location, date, hour };
+    const { error } = schema.validate(newEvent);
+    if (error) {
+      logger.error(error.message, {
+        timestamp: new Date(),
+        newEvent,
+      });
+      return res.status(400).send(error.message);
+    }
+
+    newEvent.id = generateId();
+    events.push(newEvent);
+    await writeEventsToCsv(events);
+    logger.info("new event added", {
+      timestamp: new Date(),
+      eventId,
+    });
+    res.json(newEvent);
+  } catch (e) {
+    next(e);
+  }
 });
 
 app.put("/events/:eventId", async (req, res, next) => {
-  asyncLocalStorage.run(req, async () => {
-    try {
-      const eventId = req.params.eventId;
-      logger.info("updating event", {
+  try {
+    const eventId = req.params.eventId;
+    logger.info("updating event", {
+      timestamp: new Date(),
+      eventId,
+    });
+    const events = await readEventsFromCSV();
+    const eventIndex = events.findIndex(
+      (event) => event.id.toString() === eventId
+    );
+    if (eventIndex === -1) {
+      logger.error("event not found", {
         timestamp: new Date(),
         eventId,
       });
-      const events = await readEventsFromCSV();
-      const eventIndex = events.findIndex(
-        (event) => event.id.toString() === eventId
-      );
-      if (eventIndex === -1) {
-        logger.error("event not found", {
-          timestamp: new Date(),
-          eventId,
-        });
-        return res.sendStatus(404);
-      }
-
-      const { title, location, date, hour } = req.body;
-      const newEvent = { title, location, date, hour };
-      const { error } = schema.validate(newEvent);
-      if (error) {
-        logger.error(error.message, {
-          timestamp: new Date(),
-          newEvent,
-        });
-        return res.status(400).send(error.message);
-      }
-
-      newEvent.id = eventId;
-
-      const newEvents = [
-        ...events.slice(0, eventIndex),
-        newEvent,
-        ...events.slice(eventIndex + 1, events.length),
-      ];
-
-      await writeEventsToCsv(newEvents);
-      res.json(newEvent);
-    } catch (e) {
-      next(e);
+      return res.sendStatus(404);
     }
-  });
+
+    const { title, location, date, hour } = req.body;
+    const newEvent = { title, location, date, hour };
+    const { error } = schema.validate(newEvent);
+    if (error) {
+      logger.error(error.message, {
+        timestamp: new Date(),
+        newEvent,
+      });
+      return res.status(400).send(error.message);
+    }
+
+    newEvent.id = eventId;
+
+    const newEvents = [
+      ...events.slice(0, eventIndex),
+      newEvent,
+      ...events.slice(eventIndex + 1, events.length),
+    ];
+
+    await writeEventsToCsv(newEvents);
+    res.json(newEvent);
+  } catch (e) {
+    next(e);
+  }
 });
 
 app.get("/events-batch", async (req, res, next) => {
-  asyncLocalStorage.run(req, async () => {
-    try {
-      logger.info("batch streaming events", {
-        timestamp: new Date(),
-      });
-      const events = await readEventsFromCSV();
-      const streamEvents = stream.Readable.from(JSON.stringify(events));
-      streamEvents.pipe(res);
-    } catch (e) {
-      next(e);
-    }
-  });
+  try {
+    logger.info("batch streaming events", {
+      timestamp: new Date(),
+    });
+    const events = await readEventsFromCSV();
+    const streamEvents = stream.Readable.from(JSON.stringify(events));
+    streamEvents.pipe(res);
+  } catch (e) {
+    next(e);
+  }
 });
 
 app.listen(3000, () => {
