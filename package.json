@@ -23,5 +23,8 @@
     "joi": "^17.2.1",
     "sequelize": "^6.3.5",
     "winston": "^3.3.3"
+  },
+  "devDependencies": {
+    "sequelize-cli": "^6.2.0"
   }
 }
