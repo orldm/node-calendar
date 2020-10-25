@@ -21,6 +21,7 @@
     "csv-parser": "^2.3.3",
     "express": "^4.17.1",
     "joi": "^17.2.1",
+    "sequelize": "^6.3.5",
     "winston": "^3.3.3"
   }
 }
