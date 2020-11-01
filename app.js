@@ -1,11 +1,29 @@
-const http = require("http");
-const logger = require("./logger");
-const config = require("./config");
+import config from "dotenv";
+import express from "express";
+import bodyParser from "body-parser";
+import userRoutes from "./api/routes/userRoutes";
+import eventRoutes from "./api/routes/eventRoutes";
 
-http
-  .createServer((req, res) => {
-    logger.log("New incoming request");
-    res.writeHeader(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ message: "hello world" }));
+config.config();
+
+const app = express();
+
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
+
+const port = process.env.PORT || 8000;
+
+app.use("/users", userRoutes);
+app.use("/events", eventRoutes);
+
+app.get("*", (req, res) =>
+  res.status(200).send({
+    message: "Welcome to this API.",
   })
-  .listen(config.PORT, () => logger.log(`listening on port ${config.PORT}`));
+);
+
+app.listen(port, () => {
+  console.log(`Server is running on PORT ${port}`);
+});
+
+export default app;
