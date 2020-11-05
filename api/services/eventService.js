@@ -11,18 +11,10 @@ class eventService {
   }
 
   static async updateEvent(id, updatedEvent) {
-    const eventToUpdate = await database.event.findOne({
+    const result = await database.event.update(updatedEvent, {
       where: { id: Number(id) },
     });
-
-    if (eventToUpdate) {
-      await database.event.update(updatedEvent, {
-        where: { id: Number(id) },
-      });
-
-      return updatedEvent;
-    }
-    return null;
+    return result[0] ? updatedEvent : null;
   }
 
   static async getEvent(id) {
