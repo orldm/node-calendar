@@ -1,4 +1,4 @@
-export default class Util {
+export default class HTTPUtil {
   constructor() {
     this.statusCode = null;
     this.type = null;
