@@ -1,8 +1,9 @@
 import database from "../../db/models";
 
 class eventService {
-  static async getEvents() {
-    return await database.event.findAll();
+  static async getEvents(location) {
+    const clause = location ? { where: { location } } : {};
+    return await database.event.findAll(clause);
   }
 
   static async addEvent(newEvent) {

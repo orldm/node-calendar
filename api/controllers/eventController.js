@@ -16,8 +16,7 @@ const httpUtil = new HTTPUtil();
 class eventController {
   static async getEvents(req, res) {
     try {
-      const allEvents = await eventService.getEvents();
-      console.log("all events = ", allEvents);
+      const allEvents = await eventService.getEvents(req.query.location);
       if (allEvents.length > 0) {
         httpUtil.setSuccess(200, "events retrieved", allEvents);
       } else {
