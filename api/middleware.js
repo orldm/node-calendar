@@ -26,12 +26,6 @@ const verify = async (req, res, next) => {
       return httpUtil.send(res);
     }
     jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
-    const newAccessToken = jwt.sign({}, ACCESS_TOKEN_SECRET, {
-      expiresIn: ACCESS_TOKEN_LIFE,
-    });
-    const newAccessTokenId = hash(newAccessToken);
-    await tokenService.updateToken(oldAccessTokenId, newAccessTokenId);
-    res.setHeader("authorization", newAccessToken);
     return next();
   } catch (err) {
     await tokenService.deleteExpired();
