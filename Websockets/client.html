@@ -1,0 +1,122 @@
+<html>
+  <head>
+    <link
+      rel="stylesheet"
+      href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
+      integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm"
+      crossorigin="anonymous"
+    />
+    <script type="text/javascript">
+      let webSocket;
+
+      function connectToWS() {
+        const endpoint = "ws://localhost:3000";
+        if (webSocket !== undefined) {
+          webSocket.close();
+        }
+
+        webSocket = new WebSocket(endpoint);
+
+        webSocket.onmessage = function (event) {
+          document.getElementById(
+            "url"
+          ).innerHTML = `<p>File url: <a href='http://localhost:3000/${event.data}'>${event.data}</a></p>`;
+          console.log("event =", event);
+        };
+
+        webSocket.onopen = function (evt) {
+          document.getElementById("wrapper").style.borderColor = "green";
+        };
+
+        webSocket.onclose = function (evt) {
+          document.getElementById("wrapper").style.borderColor = "gainsboro";
+        };
+
+        webSocket.onerror = function (error) {
+          console.log(error);
+          alert("Connection error");
+        };
+      }
+
+      function sendFile() {
+        const fileInput = document.getElementById("fileInput");
+        const file = fileInput.files[0];
+        const fullPath = fileInput.value;
+        let filename;
+        if (fullPath) {
+          const startIndex =
+            fullPath.indexOf("\\") >= 0
+              ? fullPath.lastIndexOf("\\")
+              : fullPath.lastIndexOf("/");
+          filename = fullPath.substring(startIndex);
+          if (filename.indexOf("\\") === 0 || filename.indexOf("/") === 0) {
+            filename = filename.substring(1);
+          }
+        }
+
+        console.log("file =", filename);
+
+        if (!webSocket) {
+          document.getElementById("wrapper").style.borderColor = "red";
+        }
+
+        if (!file) return;
+        const reader = new FileReader();
+
+        let rawData = new ArrayBuffer();
+
+        reader.onload = function (e) {
+          const data = String.fromCharCode.apply(
+            null,
+            new Uint8Array(e.target.result)
+          );
+          const message = JSON.stringify({ filename, data });
+          webSocket.send(message);
+        };
+
+        reader.readAsArrayBuffer(file);
+      }
+
+      function closeConn() {
+        webSocket.close();
+      }
+    </script>
+  </head>
+  <body>
+    <div
+      id="wrapper"
+      class="card"
+      style="
+        width: 360px;
+        margin: auto;
+        margin-top: 40px;
+        border-color: gainsboro;
+      "
+    >
+      <form style="padding: 30px">
+        <div class="form-group">
+          <input
+            type="button"
+            style="width: 298px"
+            onclick="connectToWS()"
+            value="connect to WebSocket endpoint"
+          />
+        </div>
+        <div class="form-group">
+          <input
+            type="file"
+            id="fileInput"
+            style="width: 300px; overflow: hidden"
+          />
+        </div>
+        <div class="form-group">
+          <input type="button" onclick="sendFile()" value="Send file" />
+        </div>
+        <div class="form-group">
+          <input type="button" onclick="closeConn()" value="Close connection" />
+        </div>
+        <div id="url" style="height: 20px"></div>
+      </form>
+    </div>
+  </body>
+</html>
