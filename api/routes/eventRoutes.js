@@ -1,7 +1,8 @@
 import { Router } from "express";
 import eventController from "../controllers/eventController.js";
+import verify from "../middleware";
 
-const router = Router();
+const router = Router().use(verify);
 
 router.get("/", eventController.getEvents);
 router.post("/", eventController.addEvent);

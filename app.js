@@ -3,6 +3,7 @@ import express from "express";
 import bodyParser from "body-parser";
 import userRoutes from "./api/routes/userRoutes";
 import eventRoutes from "./api/routes/eventRoutes";
+import authRoutes from "./api/routes/authRoutes";
 
 config.config();
 
@@ -15,6 +16,7 @@ const port = process.env.PORT || 8000;
 
 app.use("/users", userRoutes);
 app.use("/events", eventRoutes);
+app.use("/", authRoutes);
 
 app.get("*", (req, res) =>
   res.status(200).send({
